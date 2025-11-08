@@ -1,0 +1,7 @@
+- hosts: web
+  become: false  
+  tasks:
+    - name: Install Nginx with Homebrew
+      homebrew:
+        name: nginx
+        state: present
