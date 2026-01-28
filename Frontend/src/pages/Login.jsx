@@ -43,7 +43,7 @@ const Login = () => {
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-header">
-          <div className="logo">📅 DoctorChannel</div>
+          <div className="logo"> DoctorChannel</div>
           <h2>Welcome Back</h2>
           <p>Enter your credentials to access your account</p>
         </div>

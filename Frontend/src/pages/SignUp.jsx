@@ -42,7 +42,7 @@ const SignUp = () => {
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-header">
-          <div className="logo">📅 DoctorChannel</div>
+          <div className="logo"> DoctorChannel</div>
           <h2>Create Account</h2>
           <p>Sign up to book your appointments</p>
         </div>

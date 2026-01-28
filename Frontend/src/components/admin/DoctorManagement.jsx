@@ -84,19 +84,19 @@ const DoctorManagement = () => {
                   <td>{doctor.specialty}</td>
                   <td>{doctor.hospitalName}</td>
                   <td>{doctor.city}</td>
-                  <td>${doctor.consultationFee}</td>
+                  <td>Rs. {doctor.consultationFee}</td>
                   <td className="actions">
                     <button 
                       className="btn-edit"
                       onClick={() => setEditingDoctor(doctor)}
                     >
-                      ✏️ Edit
+                      Edit
                     </button>
                     <button 
                       className="btn-delete"
                       onClick={() => handleDelete(doctor.id)}
                     >
-                      🗑️ Delete
+                      Delete
                     </button>
                   </td>
                 </tr>

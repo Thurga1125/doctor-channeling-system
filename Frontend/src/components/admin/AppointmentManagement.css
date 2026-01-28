@@ -1,0 +1,200 @@
+.appointment-management {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.management-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.management-header h2 {
+  font-size: 2rem;
+  color: #2c3e50;
+}
+
+.filter-section {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-section label {
+  font-weight: 500;
+  color: #555;
+}
+
+.filter-section select {
+  padding: 0.5rem 1rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.loading,
+.no-appointments {
+  text-align: center;
+  padding: 3rem;
+  font-size: 1.2rem;
+  color: #7f8c8d;
+}
+
+.appointments-table {
+  overflow-x: auto;
+}
+
+.appointments-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.appointments-table th,
+.appointments-table td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.appointments-table th {
+  background: #f5f7fa;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.patient-info,
+.doctor-info,
+.payment-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.patient-info strong,
+.doctor-info strong {
+  color: #2c3e50;
+}
+
+.patient-info small,
+.doctor-info small,
+.payment-info small {
+  color: #7f8c8d;
+  font-size: 0.85rem;
+}
+
+.status-badge,
+.payment-badge {
+  display: inline-block;
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.status-pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-confirmed {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.status-completed {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-cancelled {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.payment-paid {
+  background: #d4edda;
+  color: #155724;
+}
+
+.payment-partial {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.payment-pending {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.status-select {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.btn-delete {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: opacity 0.3s;
+  background: #e74c3c;
+  color: white;
+}
+
+.btn-delete:hover {
+  opacity: 0.8;
+}
+
+.appointments-summary {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+.summary-card {
+  background: #f5f7fa;
+  padding: 1rem 2rem;
+  border-radius: 10px;
+  text-align: center;
+  min-width: 100px;
+}
+
+.summary-card.pending {
+  background: #fff3cd;
+}
+
+.summary-card.confirmed {
+  background: #d1ecf1;
+}
+
+.summary-card.completed {
+  background: #d4edda;
+}
+
+.summary-count {
+  display: block;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.summary-label {
+  font-size: 0.9rem;
+  color: #7f8c8d;
+}

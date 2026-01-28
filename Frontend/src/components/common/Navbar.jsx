@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import logo from '../../assets/images/logo.jpg';
 import './Navbar.css';
 
 const Navbar = () => {
@@ -16,7 +17,11 @@ const Navbar = () => {
     <nav className="navbar">
       <div className="navbar-container">
         <Link to="/" className="navbar-logo">
-          <span className="logo-icon">📅</span> DoctorChannel
+          <img src={logo} alt="Mediland Hospital Logo" className="logo-image" />
+          <div className="logo-text">
+            <span className="logo-title">DoctorChannel</span>
+            <span className="logo-subtitle">Mediland Hospital - Kalmunai</span>
+          </div>
         </Link>
         
         <div className="navbar-menu">
@@ -36,7 +41,7 @@ const Navbar = () => {
           ) : (
             <>
               <Link to="/admin-login" className="navbar-link navbar-admin-link">
-                🔐 Admin Login
+                 Admin Login
               </Link>
               <Link to="/login" className="navbar-button">Sign In</Link>
             </>

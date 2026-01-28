@@ -23,7 +23,7 @@ const Home = () => {
                 className="btn-primary" 
                 onClick={() => navigate('/doctors')}
               >
-                <span className="btn-icon">📅</span> Find Doctors
+                <span className="btn-icon"></span> Find Doctors
               </button>
               <button 
                 className="btn-secondary"

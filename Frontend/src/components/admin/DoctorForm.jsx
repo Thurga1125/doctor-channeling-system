@@ -165,7 +165,7 @@ const DoctorForm = ({ doctor, onSuccess }) => {
           </div>
           
           <div className="form-group">
-            <label>Consultation Fee ($)</label>
+            <label>Consultation Fee (Rs.)</label>
             <input
               type="number"
               name="consultationFee"

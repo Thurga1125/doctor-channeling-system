@@ -34,6 +34,12 @@ public class Appointment {
     private String status; // "PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"
     private String symptoms;
     
+    @Field("payment_option")
+    private String paymentOption; // "FULL", "HALF", "PAY_AT_VISIT"
+    
+    @Field("payment_status")
+    private String paymentStatus; // "PENDING", "PAID", "PARTIALLY_PAID"
+    
     @Field("created_at")
     private LocalDateTime createdAt;
     

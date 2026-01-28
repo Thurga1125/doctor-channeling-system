@@ -28,7 +28,7 @@ const DoctorCard = ({ doctor }) => {
             📍 {doctor.city}
           </span>
           <span className="detail-item">
-            💰 ${doctor.consultationFee}
+            💰 Rs. {doctor.consultationFee}
           </span>
         </div>
         

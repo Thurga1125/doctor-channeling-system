@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { doctorService } from '../../services/doctorService';
-import { doctorImageOptions, getDoctorImage } from '../../utils/doctorImages';
 
 const AddDoctor = ({ onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -19,6 +18,8 @@ const AddDoctor = ({ onClose, onSuccess }) => {
     endTime: '',
     slotDuration: 30
   });
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -37,6 +38,45 @@ const AddDoctor = ({ onClose, onSuccess }) => {
     }));
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select a valid image file');
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size should be less than 5MB');
+        return;
+      }
+
+      setImageFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+        setFormData(prev => ({
+          ...prev,
+          imageUrl: reader.result // Store base64 string
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    setFormData(prev => ({
+      ...prev,
+      imageUrl: ''
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -50,14 +90,14 @@ const AddDoctor = ({ onClose, onSuccess }) => {
     
     try {
       const response = await doctorService.createDoctor(doctorData);
-      console.log('✅ Response:', response);
+      console.log(' Response:', response);
       
       alert('Doctor added successfully!');
       onSuccess();
     } catch (error) {
-      console.error('❌ Error details:', error);
-      console.error('❌ Error response:', error.response);
-      console.error('❌ Error message:', error.message);
+      console.error(' Error details:', error);
+      console.error(' Error response:', error.response);
+      console.error(' Error message:', error.message);
       
       let errorMessage = 'Failed to add doctor';
       
@@ -241,24 +281,51 @@ const AddDoctor = ({ onClose, onSuccess }) => {
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600', color: '#2c3e50' }}>
               Doctor Image
             </label>
-            <select
-              name="imageUrl"
-              value={formData.imageUrl}
-              onChange={handleChange}
-              style={{ width: '100%', padding: '0.8rem', borderRadius: '8px', border: '2px solid #e0e0e0' }}
-            >
-              <option value="">Select an image</option>
-              {doctorImageOptions.map((img) => (
-                <option key={img.id} value={img.id}>{img.label}</option>
-              ))}
-            </select>
-            {formData.imageUrl && (
-              <div style={{ marginTop: '1rem', textAlign: 'center' }}>
-                <img 
-                  src={getDoctorImage(formData.imageUrl)} 
-                  alt="Preview" 
-                  style={{ maxWidth: '200px', maxHeight: '200px', borderRadius: '8px', objectFit: 'cover' }}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageChange}
+              style={{
+                width: '100%',
+                padding: '0.8rem',
+                borderRadius: '8px',
+                border: '2px solid #e0e0e0',
+                cursor: 'pointer'
+              }}
+            />
+            <p style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.5rem' }}>
+              Accepted formats: JPG, PNG, GIF, WEBP (Max size: 5MB)
+            </p>
+            {imagePreview && (
+              <div style={{ marginTop: '1rem', textAlign: 'center', position: 'relative' }}>
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  style={{
+                    maxWidth: '200px',
+                    maxHeight: '200px',
+                    borderRadius: '8px',
+                    objectFit: 'cover',
+                    border: '2px solid #e0e0e0'
+                  }}
                 />
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  style={{
+                    marginTop: '0.5rem',
+                    padding: '0.5rem 1rem',
+                    background: '#e74c3c',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: '600'
+                  }}
+                >
+                  Remove Image
+                </button>
               </div>
             )}
           </div>

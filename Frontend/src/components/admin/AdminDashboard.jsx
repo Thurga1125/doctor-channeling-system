@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import DoctorManagement from './DoctorManagement';
-import UserManagement from './UserManagement';  
+import AppointmentManagement from './AppointmentManagement';
+import UserManagement from './UserManagement';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
@@ -15,26 +16,26 @@ const AdminDashboard = () => {
             className={activeTab === 'doctors' ? 'active' : ''}
             onClick={() => setActiveTab('doctors')}
           >
-            👨‍⚕️ Manage Doctors
+            Manage Doctors
           </button>
           <button 
             className={activeTab === 'appointments' ? 'active' : ''}
             onClick={() => setActiveTab('appointments')}
           >
-            📅 Appointments
+            Appointments
           </button>
           <button 
             className={activeTab === 'users' ? 'active' : ''}
             onClick={() => setActiveTab('users')}
           >
-            👥 Users
+            Users
           </button>
         </nav>
       </div>
       
       <div className="admin-content">
         {activeTab === 'doctors' && <DoctorManagement />}
-        {activeTab === 'appointments' && <div>Appointments Management (To be implemented)</div>}
+        {activeTab === 'appointments' && <AppointmentManagement />}
         {activeTab === 'users' && <UserManagement />}
       </div>
     </div>

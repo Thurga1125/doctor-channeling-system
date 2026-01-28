@@ -77,7 +77,7 @@ const DoctorList = ({ onEdit }) => {
                 <td>{doctor.qualification}</td>
                 <td>{doctor.hospitalName}</td>
                 <td>{doctor.city}</td>
-                <td>${doctor.consultationFee}</td>
+                <td>(Rs.){doctor.consultationFee}</td>
                 <td className="actions">
                   <button 
                     className="edit-btn"
