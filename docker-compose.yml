@@ -7,9 +7,9 @@ services:
     container_name: doctor-channeling-mongodb
     restart: always
     environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: adminpass
-      MONGO_INITDB_DATABASE: doctor_channeling
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-adminpass}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-doctor_channeling}
     ports:
       - "27017:27017"
     volumes:
@@ -21,6 +21,10 @@ services:
       timeout: 20s
       retries: 10
       interval: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   # Spring Boot Backend
   backend:
@@ -32,13 +36,24 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SPRING_DATA_MONGODB_URI: mongodb://admin:adminpass@mongodb:27017/doctor_channeling?authSource=admin
+      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-adminpass}@mongodb:27017/${MONGO_DATABASE:-doctor_channeling}?authSource=admin
       SPRING_DATA_MONGODB_AUTO_INDEX_CREATION: "true"
+      JAVA_OPTS: "-Xmx256m -Xms128m"
     depends_on:
       mongodb:
         condition: service_healthy
     networks:
       - doctor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
 
   # React Frontend
   frontend:
@@ -53,6 +68,16 @@ services:
       - backend
     networks:
       - doctor-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
 
 networks:
   doctor-network:
