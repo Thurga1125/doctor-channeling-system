@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { doctorService } from '../../services/doctorService';
 import DoctorCard from './DoctorCard';
 import './FindDoctors.css';
@@ -9,11 +9,8 @@ const FindDoctors = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchType, setSearchType] = useState('name');
 
-  useEffect(() => {
-    loadDoctors();
-  }, []);
-
-  const loadDoctors = async () => {
+  // Memoize loadDoctors to prevent unnecessary re-renders
+  const loadDoctors = useCallback(async () => {
     try {
       setLoading(true);
       const data = await doctorService.getAllDoctors();
@@ -23,7 +20,36 @@ const FindDoctors = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadDoctors();
+  }, [loadDoctors]);
+
+  // Auto-refresh when page becomes visible (e.g., switching tabs)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadDoctors();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [loadDoctors]);
+
+  // Optional: Auto-refresh every 30 seconds to catch admin changes
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      loadDoctors();
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(intervalId);
+  }, [loadDoctors]);
+
 
   const handleSearch = async (e) => {
     e.preventDefault();

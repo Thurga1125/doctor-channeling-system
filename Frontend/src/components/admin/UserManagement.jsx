@@ -56,7 +56,7 @@ const UserManagement = () => {
               <td>{user.role}</td>
               <td>
                 <button className="btn-delete" onClick={() => handleDelete(user.id)}>
-                  🗑️ Delete
+                  Delete
                 </button>
               </td>
             </tr>

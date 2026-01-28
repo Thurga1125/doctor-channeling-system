@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doctorService } from '../../services/doctorService';
 import { getDoctorImage } from '../../utils/doctorImages';
@@ -10,11 +10,7 @@ const DoctorDetails = () => {
   const [doctor, setDoctor] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadDoctor();
-  }, [id]);
-
-  const loadDoctor = async () => {
+  const loadDoctor = useCallback(async () => {
     try {
       const data = await doctorService.getDoctorById(id);
       setDoctor(data);
@@ -23,7 +19,26 @@ const DoctorDetails = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    loadDoctor();
+  }, [loadDoctor]);
+
+  // Auto-refresh when page becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadDoctor();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [loadDoctor]);
 
   if (loading) return <div className="doctor-details-container"><div className="loading">Loading...</div></div>;
   if (!doctor) return <div className="doctor-details-container"><div className="not-found">Doctor not found</div></div>;
@@ -41,8 +56,8 @@ const DoctorDetails = () => {
             <p><strong>Qualification:</strong> {doctor.qualification}</p>
             <p><strong>Hospital:</strong> {doctor.hospitalName}</p>
             <p><strong>City:</strong> {doctor.city}</p>
-            <p><strong>Consultation Fee:</strong> ${doctor.consultationFee}</p>
-            <button 
+            <p><strong>Consultation Fee:</strong> Rs. {doctor.consultationFee}</p>
+            <button
               className="book-button"
               onClick={() => navigate(`/book-appointment/${doctor.id}`)}
             >

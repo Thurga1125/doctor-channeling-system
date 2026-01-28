@@ -18,5 +18,16 @@ export const doctorImageOptions = [
 ];
 
 export const getDoctorImage = (imageId) => {
+  // If imageId is empty or null, return default
+  if (!imageId) {
+    return doctorImages['default'];
+  }
+  
+  // If imageId starts with 'data:' or 'http', it's a direct URL/base64 string
+  if (imageId.startsWith('data:') || imageId.startsWith('http://') || imageId.startsWith('https://')) {
+    return imageId;
+  }
+  
+  // Otherwise, look it up in the static images map
   return doctorImages[imageId] || doctorImages['default'];
 };
