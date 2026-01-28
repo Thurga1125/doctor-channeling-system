@@ -89,13 +89,13 @@
       when: env_file is defined
 
     - name: Stop existing containers
-      shell: docker-compose down
+      ansible.builtin.shell: docker-compose down
       args:
         chdir: "{{ app_dir }}"
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: Build and start Docker containers
-      shell: docker-compose up -d --build
+      ansible.builtin.shell: docker-compose up -d --build
       args:
         chdir: "{{ app_dir }}"
 
@@ -161,8 +161,8 @@
 
     # Cleanup
     - name: Remove unused Docker resources
-      shell: docker system prune -af
-      ignore_errors: yes
+      ansible.builtin.shell: docker system prune -af
+      ignore_errors: true
 
   handlers:
     - name: Restart Docker
