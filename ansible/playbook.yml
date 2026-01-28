@@ -1,7 +1,171 @@
-- hosts: web
-  become: false  
+---
+- name: Configure Doctor Channeling Server
+  hosts: web
+  become: true
+  vars:
+    app_dir: /home/ubuntu/doctor-channeling-system
+    docker_compose_version: "2.24.0"
+
   tasks:
-    - name: Install Nginx with Homebrew
-      homebrew:
-        name: nginx
+    # System Updates
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+        autoremove: yes
+
+    # Install required packages
+    - name: Install required packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - git
+          - python3-pip
         state: present
+
+    # Docker Installation
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+        update_cache: yes
+
+    - name: Start and enable Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add ubuntu user to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+    # Docker Compose Installation
+    - name: Install Docker Compose
+      get_url:
+        url: "https://github.com/docker/compose/releases/download/v{{ docker_compose_version }}/docker-compose-linux-x86_64"
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+
+    # Application Deployment
+    - name: Clone application repository
+      git:
+        repo: https://github.com/Thurga1125/doctor-channeling-system.git
+        dest: "{{ app_dir }}"
+        version: main
+        force: yes
+      become_user: ubuntu
+
+    - name: Copy environment file
+      template:
+        src: templates/.env.j2
+        dest: "{{ app_dir }}/.env"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0600'
+      when: env_file is defined
+
+    - name: Stop existing containers
+      shell: docker-compose down
+      args:
+        chdir: "{{ app_dir }}"
+      ignore_errors: yes
+
+    - name: Build and start Docker containers
+      shell: docker-compose up -d --build
+      args:
+        chdir: "{{ app_dir }}"
+
+    - name: Wait for services to be ready
+      wait_for:
+        port: "{{ item }}"
+        host: localhost
+        delay: 10
+        timeout: 120
+      loop:
+        - 8080
+        - 3000
+
+    - name: Verify application is running
+      uri:
+        url: "http://localhost:3000"
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 10
+      delay: 10
+
+    # Firewall Configuration
+    - name: Install UFW
+      apt:
+        name: ufw
+        state: present
+
+    - name: Allow SSH
+      ufw:
+        rule: allow
+        port: '22'
+        proto: tcp
+
+    - name: Allow HTTP
+      ufw:
+        rule: allow
+        port: '80'
+        proto: tcp
+
+    - name: Allow HTTPS
+      ufw:
+        rule: allow
+        port: '443'
+        proto: tcp
+
+    - name: Allow Frontend port
+      ufw:
+        rule: allow
+        port: '3000'
+        proto: tcp
+
+    - name: Allow Backend port
+      ufw:
+        rule: allow
+        port: '8080'
+        proto: tcp
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+        policy: deny
+
+    # Cleanup
+    - name: Remove unused Docker resources
+      shell: docker system prune -af
+      ignore_errors: yes
+
+  handlers:
+    - name: Restart Docker
+      systemd:
+        name: docker
+        state: restarted
