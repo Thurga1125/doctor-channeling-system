@@ -1,0 +1,409 @@
+pipeline {
+    agent any
+
+    environment {
+        // Docker Hub Configuration
+        DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
+        DOCKER_HUB_USERNAME = 'thurga1125'
+        APP_NAME = 'doctor-channeling'
+
+        // AWS Configuration
+        AWS_CREDENTIALS = credentials('aws-credentials')
+        AWS_REGION = 'eu-north-1'
+
+        // EC2 Configuration
+        EC2_HOST = credentials('ec2-host-ip')
+        SSH_KEY = credentials('ec2-ssh-key')
+
+        // Application Configuration
+        ENVIRONMENT = 'production'
+
+        // Secrets Manager
+        MONGODB_SECRET_ARN = 'doctor-channeling/mongodb-credentials'
+
+        // S3 Backup
+        S3_BACKUP_BUCKET = 'doctor-channeling-mongodb-backups-production'
+    }
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        timestamps()
+        timeout(time: 30, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo '🔍 Checking out code from GitHub...'
+                git branch: 'main', url: 'https://github.com/Thurga1125/doctor-channeling-system.git'
+            }
+        }
+
+        stage('Validate Infrastructure') {
+            parallel {
+                stage('Validate Terraform') {
+                    steps {
+                        echo '🔍 Validating Terraform configuration...'
+                        dir('terraform') {
+                            sh '''
+                                terraform fmt -check || echo "Warning: Terraform files need formatting"
+                                terraform init -backend=false
+                                terraform validate
+                            '''
+                        }
+                    }
+                }
+                stage('Validate Ansible') {
+                    steps {
+                        echo '🔍 Checking Ansible playbook syntax...'
+                        dir('ansible') {
+                            sh 'ansible-playbook playbook.yml --syntax-check || true'
+                            sh 'ansible-playbook playbook-ssl.yml --syntax-check || true'
+                        }
+                    }
+                }
+                stage('Lint Dockerfiles') {
+                    steps {
+                        echo '🔍 Linting Dockerfiles...'
+                        sh '''
+                            docker run --rm -i hadolint/hadolint < Backend/Dockerfile || echo "Backend Dockerfile has warnings"
+                            docker run --rm -i hadolint/hadolint < Frontend/Dockerfile || echo "Frontend Dockerfile has warnings"
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('Security Scan') {
+            parallel {
+                stage('Dependency Check - Backend') {
+                    steps {
+                        echo '🔒 Scanning backend dependencies...'
+                        dir('Backend') {
+                            sh 'chmod +x mvnw || true'
+                            sh './mvnw dependency-check:check || true'
+                        }
+                    }
+                }
+                stage('Dependency Check - Frontend') {
+                    steps {
+                        echo '🔒 Scanning frontend dependencies...'
+                        dir('Frontend') {
+                            sh 'npm audit --audit-level=moderate || true'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build & Test Backend') {
+            steps {
+                echo '🔨 Building and testing Spring Boot application...'
+                dir('Backend') {
+                    sh 'chmod +x mvnw || true'
+                    sh './mvnw clean package -DskipTests'
+                    sh './mvnw test'
+                }
+            }
+            post {
+                always {
+                    dir('Backend') {
+                        junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
+                        jacoco execPattern: 'target/jacoco.exec'
+                    }
+                }
+            }
+        }
+
+        stage('Build & Test Frontend') {
+            steps {
+                echo '🔨 Building React application...'
+                dir('Frontend') {
+                    sh 'npm ci'
+                    sh 'npm run build'
+                    sh 'npm test -- --watchAll=false --passWithNoTests --coverage || true'
+                }
+            }
+            post {
+                always {
+                    dir('Frontend') {
+                        publishHTML([
+                            allowMissing: true,
+                            alwaysLinkToLastBuild: false,
+                            keepAll: true,
+                            reportDir: 'coverage',
+                            reportFiles: 'index.html',
+                            reportName: 'Frontend Coverage Report'
+                        ])
+                    }
+                }
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                echo '🐳 Building Docker images...'
+                sh """
+                    docker build \\
+                        -t ${DOCKER_HUB_USERNAME}/${APP_NAME}-backend:${BUILD_NUMBER} \\
+                        -t ${DOCKER_HUB_USERNAME}/${APP_NAME}-backend:latest \\
+                        --build-arg BUILD_NUMBER=${BUILD_NUMBER} \\
+                        --build-arg BUILD_DATE=\$(date -u +'%Y-%m-%dT%H:%M:%SZ') \\
+                        ./Backend
+
+                    docker build \\
+                        -t ${DOCKER_HUB_USERNAME}/${APP_NAME}-frontend:${BUILD_NUMBER} \\
+                        -t ${DOCKER_HUB_USERNAME}/${APP_NAME}-frontend:latest \\
+                        --build-arg BUILD_NUMBER=${BUILD_NUMBER} \\
+                        --build-arg BUILD_DATE=\$(date -u +'%Y-%m-%dT%H:%M:%SZ') \\
+                        ./Frontend
+                """
+            }
+        }
+
+        stage('Image Security Scan') {
+            parallel {
+                stage('Scan Backend Image') {
+                    steps {
+                        echo '🔒 Scanning backend Docker image...'
+                        sh """
+                            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
+                                aquasec/trivy image \\
+                                --severity HIGH,CRITICAL \\
+                                --exit-code 0 \\
+                                ${DOCKER_HUB_USERNAME}/${APP_NAME}-backend:latest || true
+                        """
+                    }
+                }
+                stage('Scan Frontend Image') {
+                    steps {
+                        echo '🔒 Scanning frontend Docker image...'
+                        sh """
+                            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
+                                aquasec/trivy image \\
+                                --severity HIGH,CRITICAL \\
+                                --exit-code 0 \\
+                                ${DOCKER_HUB_USERNAME}/${APP_NAME}-frontend:latest || true
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                echo '📤 Pushing images to Docker Hub...'
+                sh '''
+                    echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin
+                '''
+                sh """
+                    docker push ${DOCKER_HUB_USERNAME}/${APP_NAME}-backend:${BUILD_NUMBER}
+                    docker push ${DOCKER_HUB_USERNAME}/${APP_NAME}-backend:latest
+                    docker push ${DOCKER_HUB_USERNAME}/${APP_NAME}-frontend:${BUILD_NUMBER}
+                    docker push ${DOCKER_HUB_USERNAME}/${APP_NAME}-frontend:latest
+                """
+            }
+        }
+
+        stage('Backup Before Deploy') {
+            steps {
+                echo '💾 Creating backup before deployment...'
+                script {
+                    withAWS(credentials: 'aws-credentials', region: "${AWS_REGION}") {
+                        sshagent(['ec2-ssh-key']) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no ubuntu@\${EC2_HOST} << 'ENDSSH'
+                                    export AWS_REGION=${AWS_REGION}
+                                    export S3_BUCKET=${S3_BACKUP_BUCKET}
+                                    export MONGODB_SECRET_ARN=${MONGODB_SECRET_ARN}
+                                    /usr/local/bin/backup-mongodb.sh || echo "Backup script not found or failed"
+ENDSSH
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to EC2') {
+            steps {
+                echo '🚀 Deploying to EC2 instance...'
+                sshagent(['ec2-ssh-key']) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ubuntu@\${EC2_HOST} << 'ENDSSH'
+                            set -e
+
+                            echo "Navigating to application directory..."
+                            cd /home/ubuntu/doctor-channeling-system || git clone https://github.com/Thurga1125/doctor-channeling-system.git /home/ubuntu/doctor-channeling-system
+                            cd /home/ubuntu/doctor-channeling-system
+
+                            echo "Pulling latest code..."
+                            git fetch --all
+                            git reset --hard origin/main
+                            git pull origin main
+
+                            echo "Fetching MongoDB credentials from Secrets Manager..."
+                            MONGO_SECRET=\$(aws secretsmanager get-secret-value \\
+                                --secret-id ${MONGODB_SECRET_ARN} \\
+                                --region ${AWS_REGION} \\
+                                --query SecretString \\
+                                --output text)
+
+                            MONGO_USERNAME=\$(echo \$MONGO_SECRET | jq -r '.username')
+                            MONGO_PASSWORD=\$(echo \$MONGO_SECRET | jq -r '.password')
+                            MONGO_DATABASE=\$(echo \$MONGO_SECRET | jq -r '.database')
+
+                            echo "Creating .env file..."
+                            cat > .env << EOF
+MONGO_ROOT_USERNAME=\$MONGO_USERNAME
+MONGO_ROOT_PASSWORD=\$MONGO_PASSWORD
+MONGO_DATABASE=\$MONGO_DATABASE
+AWS_REGION=${AWS_REGION}
+SPRING_PROFILES_ACTIVE=${ENVIRONMENT}
+LOG_LEVEL=INFO
+EOF
+
+                            echo "Pulling latest Docker images..."
+                            docker pull ${DOCKER_HUB_USERNAME}/${APP_NAME}-backend:latest
+                            docker pull ${DOCKER_HUB_USERNAME}/${APP_NAME}-frontend:latest
+                            docker pull mongo:7.0
+
+                            echo "Stopping existing containers..."
+                            docker-compose -f docker-compose-production.yml down || docker-compose down || true
+
+                            echo "Starting containers with new images..."
+                            docker-compose -f docker-compose-production.yml up -d || docker-compose up -d
+
+                            echo "Cleaning up old images..."
+                            docker image prune -f
+
+                            echo "Deployment completed!"
+ENDSSH
+                    """
+                }
+            }
+        }
+
+        stage('Health Check & Verification') {
+            steps {
+                echo '🏥 Performing health checks...'
+                script {
+                    retry(5) {
+                        sleep(15)
+                        sh """
+                            echo "Checking backend health..."
+                            curl -f http://\${EC2_HOST}:8080/actuator/health || exit 1
+
+                            echo "Checking frontend health..."
+                            curl -f http://\${EC2_HOST}:3000 || exit 1
+
+                            echo "All health checks passed!"
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Post-Deployment Tests') {
+            parallel {
+                stage('Smoke Tests') {
+                    steps {
+                        echo '🧪 Running smoke tests...'
+                        sh """
+                            # Test API endpoints
+                            curl -f http://\${EC2_HOST}:8080/api/health || exit 1
+
+                            # Test Swagger UI
+                            curl -f http://\${EC2_HOST}:8080/swagger-ui.html || exit 1
+
+                            echo "Smoke tests passed!"
+                        """
+                    }
+                }
+                stage('Performance Baseline') {
+                    steps {
+                        echo '⚡ Checking performance baseline...'
+                        sh """
+                            # Simple response time check
+                            time curl -f http://\${EC2_HOST}:3000 || true
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Send Metrics to CloudWatch') {
+            steps {
+                echo '📊 Sending deployment metrics to CloudWatch...'
+                script {
+                    withAWS(credentials: 'aws-credentials', region: "${AWS_REGION}") {
+                        sh """
+                            aws cloudwatch put-metric-data \\
+                                --namespace DoctorChanneling/CI-CD \\
+                                --metric-name DeploymentSuccess \\
+                                --value 1 \\
+                                --region ${AWS_REGION} \\
+                                --dimensions Environment=${ENVIRONMENT},BuildNumber=${BUILD_NUMBER}
+
+                            aws cloudwatch put-metric-data \\
+                                --namespace DoctorChanneling/CI-CD \\
+                                --metric-name BuildDuration \\
+                                --value \${BUILD_DURATION:-0} \\
+                                --unit Seconds \\
+                                --region ${AWS_REGION} \\
+                                --dimensions Environment=${ENVIRONMENT}
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Pipeline completed successfully!'
+            script {
+                def deploymentTime = currentBuild.durationString.replace(' and counting', '')
+                echo """
+===========================================
+Deployment Summary
+===========================================
+Environment: ${ENVIRONMENT}
+Build Number: ${BUILD_NUMBER}
+Duration: ${deploymentTime}
+Backend Image: ${DOCKER_HUB_USERNAME}/${APP_NAME}-backend:${BUILD_NUMBER}
+Frontend Image: ${DOCKER_HUB_USERNAME}/${APP_NAME}-frontend:${BUILD_NUMBER}
+Frontend URL: http://\${EC2_HOST}:3000
+Backend API: http://\${EC2_HOST}:8080
+Swagger UI: http://\${EC2_HOST}:8080/swagger-ui.html
+===========================================
+                """
+            }
+            // Uncomment for Slack notifications
+            // slackSend color: 'good', message: "✅ Deployment successful: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+        }
+        failure {
+            echo '❌ Pipeline failed!'
+            script {
+                // Send failure metric to CloudWatch
+                withAWS(credentials: 'aws-credentials', region: "${AWS_REGION}") {
+                    sh """
+                        aws cloudwatch put-metric-data \\
+                            --namespace DoctorChanneling/CI-CD \\
+                            --metric-name DeploymentFailure \\
+                            --value 1 \\
+                            --region ${AWS_REGION} \\
+                            --dimensions Environment=${ENVIRONMENT},BuildNumber=${BUILD_NUMBER}
+                    """
+                }
+            }
+            // slackSend color: 'danger', message: "❌ Deployment failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+        }
+        always {
+            echo '🧹 Cleaning up...'
+            sh 'docker logout || true'
+            cleanWs()
+        }
+    }
+}

@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-DoctorChannel123}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-doctor_channeling}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./logs:/var/log/mongodb:rw
+    networks:
+      - doctor-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      timeout: 20s
+      retries: 10
+      interval: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,environment"
+        env: "LOG_LEVEL"
+
+  # Spring Boot Backend
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    image: thurga1125/doctor-channeling-backend:latest
+    container_name: backend
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-DoctorChannel123}@mongodb:27017/${MONGO_DATABASE:-doctor_channeling}?authSource=admin
+      SPRING_DATA_MONGODB_AUTO_INDEX_CREATION: "true"
+      JAVA_OPTS: "-Xmx256m -Xms128m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-production}
+      AWS_REGION: ${AWS_REGION:-eu-north-1}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - doctor-network
+    volumes:
+      - ./logs:/app/logs:rw
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,environment"
+        env: "LOG_LEVEL"
+
+  # React Frontend with Nginx
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    image: thurga1125/doctor-channeling-frontend:latest
+    container_name: frontend
+    restart: always
+    ports:
+      - "3000:80"
+      - "443:443"
+    depends_on:
+      - backend
+    networks:
+      - doctor-network
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./logs:/var/log/nginx:rw
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+    environment:
+      NGINX_HOST: ${DOMAIN_NAME:-localhost}
+      NGINX_PORT: 80
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service,environment"
+
+networks:
+  doctor-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  mongodb_data:
+    driver: local
