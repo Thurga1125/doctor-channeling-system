@@ -1,0 +1,316 @@
+---
+- name: Configure Doctor Channeling Server with SSL
+  hosts: web
+  become: true
+  vars:
+    app_dir: /home/ubuntu/doctor-channeling-system
+    docker_compose_version: "2.24.0"
+    aws_region: "eu-north-1"
+    domain_name: "{{ lookup('env', 'DOMAIN_NAME') | default('', true) }}"
+    ssl_email: "{{ lookup('env', 'SSL_EMAIL') | default('', true) }}"
+    mongodb_secret_name: "doctor-channeling/mongodb-credentials"
+
+  tasks:
+    # System Updates
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+        autoremove: yes
+
+    # Install required packages
+    - name: Install required packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - git
+          - python3-pip
+          - awscli
+          - jq
+          - certbot
+          - python3-certbot-nginx
+        state: present
+
+    # Docker Installation
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Start and enable Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add ubuntu user to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+    # Docker Compose Installation
+    - name: Install Docker Compose
+      get_url:
+        url: "https://github.com/docker/compose/releases/download/v{{ docker_compose_version }}/docker-compose-linux-x86_64"
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+
+    # Create directories
+    - name: Create application directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+      loop:
+        - "{{ app_dir }}"
+        - "{{ app_dir }}/logs"
+        - "{{ app_dir }}/nginx"
+        - /var/www/certbot
+
+    # Fetch MongoDB credentials from AWS Secrets Manager
+    - name: Fetch MongoDB credentials from Secrets Manager
+      shell: |
+        aws secretsmanager get-secret-value \
+          --secret-id {{ mongodb_secret_name }} \
+          --region {{ aws_region }} \
+          --query SecretString \
+          --output text
+      register: mongodb_secret
+      no_log: true
+      ignore_errors: true
+
+    - name: Parse MongoDB secret
+      set_fact:
+        mongodb_creds: "{{ mongodb_secret.stdout | from_json }}"
+      when: mongodb_secret.rc == 0
+      no_log: true
+
+    # Application Deployment
+    - name: Clone application repository
+      git:
+        repo: https://github.com/Thurga1125/doctor-channeling-system.git
+        dest: "{{ app_dir }}"
+        version: main
+        force: yes
+      become_user: ubuntu
+
+    # Create environment file with secrets from AWS
+    - name: Create environment file from AWS Secrets
+      copy:
+        content: |
+          MONGO_ROOT_USERNAME={{ mongodb_creds.username }}
+          MONGO_ROOT_PASSWORD={{ mongodb_creds.password }}
+          MONGO_DATABASE={{ mongodb_creds.database }}
+          AWS_REGION={{ aws_region }}
+        dest: "{{ app_dir }}/.env"
+        owner: ubuntu
+        group: ubuntu
+        mode: '0600'
+      when: mongodb_creds is defined
+      no_log: true
+
+    # Copy Nginx configuration
+    - name: Determine which Nginx config to use
+      set_fact:
+        nginx_config_file: "{{ 'nginx-ssl.conf' if (domain_name != '' and ssl_email != '') else 'nginx-http.conf' }}"
+
+    - name: Copy Nginx configuration
+      copy:
+        src: "{{ app_dir }}/nginx/{{ nginx_config_file }}"
+        dest: "{{ app_dir }}/nginx/nginx.conf"
+        remote_src: yes
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+
+    # SSL Certificate Setup (if domain is configured)
+    - name: Obtain SSL certificate with Certbot
+      command: |
+        certbot certonly --standalone \
+          --non-interactive \
+          --agree-tos \
+          --email {{ ssl_email }} \
+          -d {{ domain_name }} \
+          --pre-hook "docker-compose -f {{ app_dir }}/docker-compose.yml down" \
+          --post-hook "docker-compose -f {{ app_dir }}/docker-compose.yml up -d"
+      when: domain_name != '' and ssl_email != ''
+      register: certbot_result
+      ignore_errors: true
+
+    - name: Update Nginx SSL config with actual domain
+      replace:
+        path: "{{ app_dir }}/nginx/nginx.conf"
+        regexp: 'DOMAIN_NAME'
+        replace: "{{ domain_name }}"
+      when: domain_name != '' and ssl_email != '' and certbot_result.rc == 0
+
+    # Docker Compose Operations
+    - name: Stop existing containers
+      shell: docker-compose down
+      args:
+        chdir: "{{ app_dir }}"
+      ignore_errors: true
+
+    - name: Pull latest Docker images
+      shell: |
+        docker pull thurga1125/doctor-channeling-backend:latest
+        docker pull thurga1125/doctor-channeling-frontend:latest
+        docker pull mongo:7.0
+      args:
+        chdir: "{{ app_dir }}"
+      ignore_errors: true
+
+    - name: Start Docker containers
+      shell: docker-compose up -d
+      args:
+        chdir: "{{ app_dir }}"
+
+    - name: Wait for services to be ready
+      wait_for:
+        port: "{{ item }}"
+        host: localhost
+        delay: 10
+        timeout: 120
+      loop:
+        - 8080
+        - 3000
+
+    - name: Verify application is running
+      uri:
+        url: "http://localhost:3000"
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 10
+      delay: 10
+
+    # Setup automated backups
+    - name: Copy MongoDB backup script
+      copy:
+        src: "{{ app_dir }}/scripts/backup-mongodb.sh"
+        dest: /usr/local/bin/backup-mongodb.sh
+        remote_src: yes
+        mode: '0755'
+      ignore_errors: true
+
+    - name: Setup cron job for MongoDB backups
+      cron:
+        name: "MongoDB daily backup"
+        minute: "0"
+        hour: "2"
+        job: "/usr/local/bin/backup-mongodb.sh >> /var/log/mongodb-backup.log 2>&1"
+        user: ubuntu
+      ignore_errors: true
+
+    # Setup SSL certificate auto-renewal
+    - name: Setup Certbot auto-renewal cron
+      cron:
+        name: "Renew SSL certificates"
+        minute: "0"
+        hour: "3"
+        day: "1"
+        job: "certbot renew --quiet --post-hook 'docker-compose -f {{ app_dir }}/docker-compose.yml restart frontend'"
+        user: root
+      when: domain_name != '' and ssl_email != ''
+
+    # Firewall Configuration
+    - name: Install UFW
+      apt:
+        name: ufw
+        state: present
+
+    - name: Allow SSH
+      ufw:
+        rule: allow
+        port: '22'
+        proto: tcp
+
+    - name: Allow HTTP
+      ufw:
+        rule: allow
+        port: '80'
+        proto: tcp
+
+    - name: Allow HTTPS
+      ufw:
+        rule: allow
+        port: '443'
+        proto: tcp
+
+    - name: Allow Frontend port
+      ufw:
+        rule: allow
+        port: '3000'
+        proto: tcp
+
+    - name: Allow Backend port
+      ufw:
+        rule: allow
+        port: '8080'
+        proto: tcp
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+        policy: deny
+
+    # Monitoring and Logging
+    - name: Ensure log files exist
+      file:
+        path: "{{ item }}"
+        state: touch
+        owner: ubuntu
+        group: ubuntu
+        mode: '0644'
+      loop:
+        - "{{ app_dir }}/logs/backend.log"
+        - "{{ app_dir }}/logs/nginx.log"
+        - "{{ app_dir }}/logs/mongodb.log"
+
+    # Cleanup
+    - name: Remove unused Docker resources
+      shell: docker system prune -af --volumes
+      ignore_errors: true
+
+    # Final status
+    - name: Display deployment status
+      debug:
+        msg:
+          - "Deployment completed successfully!"
+          - "Frontend: http://{{ ansible_default_ipv4.address }}:3000"
+          - "Backend API: http://{{ ansible_default_ipv4.address }}:8080"
+          - "Swagger UI: http://{{ ansible_default_ipv4.address }}:8080/swagger-ui.html"
+          - "{% if domain_name != '' %}HTTPS URL: https://{{ domain_name }}{% endif %}"
+
+  handlers:
+    - name: Restart Docker
+      systemd:
+        name: docker
+        state: restarted

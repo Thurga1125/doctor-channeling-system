@@ -72,39 +72,31 @@ resource "aws_instance" "app" {
   instance_type          = var.instance_type
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.app_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.ec2_profile.name
 
   root_block_device {
     volume_size = 20
     volume_type = "gp3"
   }
 
-  user_data = <<-EOF
-              #!/bin/bash
-              apt-get update -y
-              apt-get install -y docker.io docker-compose git
-              systemctl start docker
-              systemctl enable docker
-              usermod -aG docker ubuntu
-              EOF
+  user_data = templatefile("${path.module}/user_data.sh", {
+    aws_region           = var.aws_region
+    environment          = var.environment
+    mongodb_secret_arn   = aws_secretsmanager_secret.mongodb_credentials.arn
+    log_group_name       = aws_cloudwatch_log_group.app_logs.name
+    backup_bucket_name   = aws_s3_bucket.mongodb_backups.bucket
+  })
 
   tags = {
     Name        = "Doctor-Channeling-Server"
     Environment = var.environment
   }
+
+  depends_on = [
+    aws_iam_role_policy.secrets_manager_policy,
+    aws_iam_role_policy.cloudwatch_policy,
+    aws_iam_role_policy.s3_backup_policy
+  ]
 }
 
-# Outputs
-output "public_ip" {
-  description = "Public IP of the EC2 instance"
-  value       = aws_instance.app.public_ip
-}
-
-output "public_dns" {
-  description = "Public DNS of the EC2 instance"
-  value       = aws_instance.app.public_dns
-}
-
-output "security_group_id" {
-  description = "Security group ID"
-  value       = aws_security_group.app_sg.id
-}
+# Outputs moved to outputs.tf
