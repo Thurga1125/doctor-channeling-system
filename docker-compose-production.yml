@@ -43,7 +43,7 @@ services:
     build:
       context: ./Backend
       dockerfile: Dockerfile
-    image: thurga1125/doctor-channeling-backend:latest
+    image: thurgarajinathan/doctor-channeling-backend:latest
     container_name: backend
     restart: always
     ports:
@@ -89,7 +89,7 @@ services:
     build:
       context: ./Frontend
       dockerfile: Dockerfile
-    image: thurga1125/doctor-channeling-frontend:latest
+    image: thurgarajinathan/doctor-channeling-frontend:latest
     container_name: frontend
     restart: always
     ports:
