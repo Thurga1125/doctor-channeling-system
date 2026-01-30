@@ -7,7 +7,7 @@
 
 > Complete Production-Ready DevOps Implementation for Doctor Channeling System
 
-## 📋 Table of Contents
+##  Table of Contents
 
 - [Overview](#overview)
 - [Architecture](#architecture)
@@ -22,7 +22,7 @@
 
 ---
 
-## 🎯 Overview
+##  Overview
 
 This project is a full-stack doctor appointment booking system with enterprise-grade DevOps implementation including:
 
@@ -45,7 +45,7 @@ This project is a full-stack doctor appointment booking system with enterprise-g
 
 ---
 
-## 🏗️ Architecture
+##  Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -95,7 +95,7 @@ This project is a full-stack doctor appointment booking system with enterprise-g
 
 ---
 
-## ✅ Prerequisites
+##  Prerequisites
 
 ### Required Tools
 
@@ -146,7 +146,7 @@ Your IAM user needs permissions for:
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### 1. Clone the Repository
 
@@ -322,7 +322,7 @@ terraform destroy
 
 ---
 
-## 🔄 CI/CD Pipeline
+##  CI/CD Pipeline
 
 ### Jenkins Pipeline Stages
 
@@ -395,7 +395,7 @@ Configure these credentials in Jenkins:
 
 ---
 
-## 📊 Monitoring & Logging
+##  Monitoring & Logging
 
 ### CloudWatch Metrics
 
@@ -464,7 +464,7 @@ aws logs tail /aws/doctor-channeling/production --follow
 
 ---
 
-## 🔐 Security
+##  Security
 
 ### Security Best Practices Implemented
 
@@ -592,7 +592,7 @@ sudo /usr/local/bin/restore-mongodb.sh mongodb_backup_YYYYMMDD_HHMMSS.tar.gz
 
 ---
 
-## 🔧 Troubleshooting
+##  Troubleshooting
 
 ### Common Issues
 
@@ -707,7 +707,7 @@ deploy:
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 doctor-channeling-system/
@@ -752,7 +752,7 @@ doctor-channeling-system/
 
 ---
 
-## 📚 Additional Resources
+##  Additional Resources
 
 ### Documentation
 
@@ -796,7 +796,7 @@ aws secretsmanager get-secret-value # Get secret
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -806,13 +806,13 @@ aws secretsmanager get-secret-value # Get secret
 
 ---
 
-## 📄 License
+## License
 
 This project is for educational purposes.
 
 ---
 
-## 👤 Author
+##  Author
 
 **Thurgarajinathan**
 - GitHub: [@Thurga1125](https://github.com/Thurga1125)
@@ -820,7 +820,7 @@ This project is for educational purposes.
 
 ---
 
-## 🙏 Acknowledgments
+##  Acknowledgments
 
 - Spring Boot Team
 - React Team
@@ -832,4 +832,4 @@ This project is for educational purposes.
 
 ---
 
-**Made with ❤️ for DevOps Excellence**
+
