@@ -527,7 +527,7 @@ To enable HTTPS:
 
 ---
 
-## 💾 Backup & Recovery
+##  Backup & Recovery
 
 ### Automated Backups
 
