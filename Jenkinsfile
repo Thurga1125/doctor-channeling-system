@@ -2,8 +2,9 @@ pipeline {
     agent any
 
     environment {
+        PATH = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${env.PATH}"
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
-        DOCKER_HUB_USERNAME = 'thurga1125'  // Replace with your Docker Hub username
+        DOCKER_HUB_USERNAME = 'thurga1125'
         APP_NAME = 'doctor-channeling'
         AWS_CREDENTIALS = credentials('aws-credentials')
         EC2_HOST = credentials('ec2-host-ip')
