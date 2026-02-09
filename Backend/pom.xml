@@ -70,13 +70,6 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Embedded MongoDB for Tests -->
-        <dependency>
-            <groupId>de.flapdoodle.embed</groupId>
-            <artifactId>de.flapdoodle.embed.mongo.spring3x</artifactId>
-            <version>4.16.2</version>
-            <scope>test</scope>
-        </dependency>
         
         <!-- Spring Boot Starter Security -->
         <dependency>
