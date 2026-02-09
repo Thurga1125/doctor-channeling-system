@@ -44,7 +44,7 @@ pipeline {
             parallel {
                 stage('Validate Terraform') {
                     steps {
-                        echo '🔍 Validating Terraform configuration...'
+                        echo ' Validating Terraform configuration...'
                         dir('terraform') {
                             sh '''
                                 terraform fmt -check || echo "Warning: Terraform files need formatting"
@@ -56,7 +56,7 @@ pipeline {
                 }
                 stage('Validate Ansible') {
                     steps {
-                        echo '🔍 Checking Ansible playbook syntax...'
+                        echo ' Checking Ansible playbook syntax...'
                         dir('ansible') {
                             sh 'ansible-playbook playbook.yml --syntax-check || true'
                             sh 'ansible-playbook playbook-ssl.yml --syntax-check || true'
@@ -65,7 +65,7 @@ pipeline {
                 }
                 stage('Lint Dockerfiles') {
                     steps {
-                        echo '🔍 Linting Dockerfiles...'
+                        echo ' Linting Dockerfiles...'
                         sh '''
                             docker run --rm -i hadolint/hadolint < Backend/Dockerfile || echo "Backend Dockerfile has warnings"
                             docker run --rm -i hadolint/hadolint < Frontend/Dockerfile || echo "Frontend Dockerfile has warnings"
@@ -79,7 +79,7 @@ pipeline {
             parallel {
                 stage('Dependency Check - Backend') {
                     steps {
-                        echo '🔒 Scanning backend dependencies...'
+                        echo ' Scanning backend dependencies...'
                         dir('Backend') {
                             sh 'chmod +x mvnw || true'
                             sh './mvnw dependency-check:check || true'
@@ -88,7 +88,7 @@ pipeline {
                 }
                 stage('Dependency Check - Frontend') {
                     steps {
-                        echo '🔒 Scanning frontend dependencies...'
+                        echo ' Scanning frontend dependencies...'
                         dir('Frontend') {
                             sh 'npm audit --audit-level=moderate || true'
                         }
@@ -99,7 +99,7 @@ pipeline {
 
         stage('Build & Test Backend') {
             steps {
-                echo '🔨 Building and testing Spring Boot application...'
+                echo ' Building and testing Spring Boot application...'
                 dir('Backend') {
                     sh 'chmod +x mvnw || true'
                     sh './mvnw clean package -DskipTests'
@@ -118,7 +118,7 @@ pipeline {
 
         stage('Build & Test Frontend') {
             steps {
-                echo '🔨 Building React application...'
+                echo ' Building React application...'
                 dir('Frontend') {
                     sh 'npm ci'
                     sh 'npm run build'
@@ -143,7 +143,7 @@ pipeline {
 
         stage('Build Docker Images') {
             steps {
-                echo '🐳 Building Docker images...'
+                echo ' Building Docker images...'
                 sh """
                     docker build \\
                         -t ${DOCKER_HUB_USERNAME}/${APP_NAME}-backend:${BUILD_NUMBER} \\
@@ -166,7 +166,7 @@ pipeline {
             parallel {
                 stage('Scan Backend Image') {
                     steps {
-                        echo '🔒 Scanning backend Docker image...'
+                        echo ' Scanning backend Docker image...'
                         sh """
                             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
                                 aquasec/trivy image \\
@@ -178,7 +178,7 @@ pipeline {
                 }
                 stage('Scan Frontend Image') {
                     steps {
-                        echo '🔒 Scanning frontend Docker image...'
+                        echo ' Scanning frontend Docker image...'
                         sh """
                             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \\
                                 aquasec/trivy image \\
@@ -208,7 +208,7 @@ pipeline {
 
         stage('Backup Before Deploy') {
             steps {
-                echo '💾 Creating backup before deployment...'
+                echo ' Creating backup before deployment...'
                 script {
                     withAWS(credentials: 'aws-credentials', region: "${AWS_REGION}") {
                         sshagent(['ec2-ssh-key']) {
@@ -287,7 +287,7 @@ ENDSSH
 
         stage('Health Check & Verification') {
             steps {
-                echo '🏥 Performing health checks...'
+                echo ' Performing health checks...'
                 script {
                     retry(5) {
                         sleep(15)
@@ -309,7 +309,7 @@ ENDSSH
             parallel {
                 stage('Smoke Tests') {
                     steps {
-                        echo '🧪 Running smoke tests...'
+                        echo ' Running smoke tests...'
                         sh """
                             # Test API endpoints
                             curl -f http://\${EC2_HOST}:8080/api/health || exit 1
@@ -362,7 +362,7 @@ ENDSSH
 
     post {
         success {
-            echo '✅ Pipeline completed successfully!'
+            echo ' Pipeline completed successfully!'
             script {
                 def deploymentTime = currentBuild.durationString.replace(' and counting', '')
                 echo """
@@ -381,10 +381,10 @@ Swagger UI: http://\${EC2_HOST}:8080/swagger-ui.html
                 """
             }
             // Uncomment for Slack notifications
-            // slackSend color: 'good', message: "✅ Deployment successful: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            // slackSend color: 'good', message: " Deployment successful: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
         }
         failure {
-            echo '❌ Pipeline failed!'
+            echo ' Pipeline failed!'
             script {
                 // Send failure metric to CloudWatch
                 withAWS(credentials: 'aws-credentials', region: "${AWS_REGION}") {
@@ -398,10 +398,10 @@ Swagger UI: http://\${EC2_HOST}:8080/swagger-ui.html
                     """
                 }
             }
-            // slackSend color: 'danger', message: "❌ Deployment failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
+            // slackSend color: 'danger', message: " Deployment failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
         }
         always {
-            echo '🧹 Cleaning up...'
+            echo ' Cleaning up...'
             sh 'docker logout || true'
             cleanWs()
         }
