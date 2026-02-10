@@ -4,7 +4,7 @@ pipeline {
     environment {
         PATH = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${env.PATH}"
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
-        DOCKER_HUB_USERNAME = 'thurga1125'
+        DOCKER_HUB_USERNAME = 'thurgarajinathan'
         APP_NAME = 'doctor-channeling'
         AWS_CREDENTIALS = credentials('aws-credentials')
         EC2_HOST = credentials('ec2-host-ip')
@@ -99,15 +99,21 @@ pipeline {
                             cd /home/ubuntu/doctor-channeling-system
                             git pull origin main
 
+                            if [ ! -f .env ]; then
+                                echo "Missing /home/ubuntu/doctor-channeling-system/.env on EC2" >&2
+                                exit 1
+                            fi
+
                             # Pull latest images
                             docker pull ${DOCKER_HUB_USERNAME}/${APP_NAME}-backend:latest
                             docker pull ${DOCKER_HUB_USERNAME}/${APP_NAME}-frontend:latest
 
                             # Stop and remove existing containers
-                            docker-compose down || true
+                            docker compose -f docker-compose-production.yml down || true
 
                             # Start with new images
-                            docker-compose up -d
+                            docker compose -f docker-compose-production.yml pull
+                            docker compose -f docker-compose-production.yml up -d --remove-orphans
 
                             # Clean up old images
                             docker image prune -f
