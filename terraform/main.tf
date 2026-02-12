@@ -2,6 +2,22 @@ provider "aws" {
   region = var.aws_region
 }
 
+# Dynamically find latest Ubuntu 24.04 LTS AMI for the region
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"] # Canonical
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd-universal/ubuntu-noble-24.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
 # Security Group for the application
 resource "aws_security_group" "app_sg" {
   name        = "doctor-channeling-sg"
@@ -34,7 +50,7 @@ resource "aws_security_group" "app_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Frontend dev port
+  # Frontend port
   ingress {
     description = "Frontend"
     from_port   = 3000
@@ -50,6 +66,15 @@ resource "aws_security_group" "app_sg" {
     to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Jenkins port
+  ingress {
+    description = "Jenkins"
+    from_port   = 8082
+    to_port     = 8082
+    protocol    = "tcp"
+    cidr_blocks = var.ssh_cidr_blocks
   }
 
   # Outbound traffic
@@ -68,23 +93,23 @@ resource "aws_security_group" "app_sg" {
 
 # EC2 Instance
 resource "aws_instance" "app" {
-  ami                    = var.ami_id
+  ami                    = data.aws_ami.ubuntu.id
   instance_type          = var.instance_type
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.app_sg.id]
   iam_instance_profile   = aws_iam_instance_profile.ec2_profile.name
 
   root_block_device {
-    volume_size = 20
+    volume_size = 30
     volume_type = "gp3"
   }
 
   user_data = templatefile("${path.module}/user_data.sh", {
-    aws_region           = var.aws_region
-    environment          = var.environment
-    mongodb_secret_arn   = aws_secretsmanager_secret.mongodb_credentials.arn
-    log_group_name       = aws_cloudwatch_log_group.app_logs.name
-    backup_bucket_name   = aws_s3_bucket.mongodb_backups.bucket
+    aws_region         = var.aws_region
+    environment        = var.environment
+    mongodb_secret_arn = aws_secretsmanager_secret.mongodb_credentials.arn
+    log_group_name     = aws_cloudwatch_log_group.app_logs.name
+    backup_bucket_name = aws_s3_bucket.mongodb_backups.bucket
   })
 
   tags = {
@@ -98,5 +123,3 @@ resource "aws_instance" "app" {
     aws_iam_role_policy.s3_backup_policy
   ]
 }
-
-# Outputs moved to outputs.tf

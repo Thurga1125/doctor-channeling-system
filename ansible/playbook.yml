@@ -5,6 +5,7 @@
   vars:
     app_dir: /home/ubuntu/doctor-channeling-system
     docker_compose_version: "2.24.0"
+    jenkins_port: 8082
 
   tasks:
     # System Updates
@@ -29,6 +30,8 @@
           - lsb-release
           - git
           - python3-pip
+          - fontconfig
+          - openjdk-17-jdk
         state: present
 
     # Docker Installation
@@ -48,6 +51,8 @@
           - docker-ce
           - docker-ce-cli
           - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
         state: present
         update_cache: yes
 
@@ -70,6 +75,68 @@
         dest: /usr/local/bin/docker-compose
         mode: '0755'
 
+    - name: Symlink docker-compose
+      file:
+        src: /usr/local/bin/docker-compose
+        dest: /usr/bin/docker-compose
+        state: link
+
+    # Node.js Installation
+    - name: Add NodeSource repository
+      shell: curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+      args:
+        creates: /etc/apt/sources.list.d/nodesource.list
+
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+        update_cache: yes
+
+    # Jenkins Installation
+    - name: Add Jenkins GPG key
+      shell: curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+      args:
+        creates: /usr/share/keyrings/jenkins-keyring.asc
+
+    - name: Add Jenkins repository
+      apt_repository:
+        repo: "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/"
+        state: present
+
+    - name: Install Jenkins
+      apt:
+        name: jenkins
+        state: present
+        update_cache: yes
+
+    - name: Create Jenkins service override directory
+      file:
+        path: /etc/systemd/system/jenkins.service.d
+        state: directory
+
+    - name: Configure Jenkins port
+      copy:
+        dest: /etc/systemd/system/jenkins.service.d/override.conf
+        content: |
+          [Service]
+          Environment="JENKINS_PORT={{ jenkins_port }}"
+      notify: Restart Jenkins
+
+    - name: Add jenkins user to docker group
+      user:
+        name: jenkins
+        groups: docker
+        append: yes
+      notify: Restart Jenkins
+
+    - name: Start and enable Jenkins
+      systemd:
+        name: jenkins
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
     # Application Deployment
     - name: Clone application repository
       git:
@@ -79,6 +146,14 @@
         force: yes
       become_user: ubuntu
 
+    - name: Create logs directory
+      file:
+        path: "{{ app_dir }}/logs"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
     - name: Copy environment file
       template:
         src: templates/.env.j2
@@ -86,16 +161,21 @@
         owner: ubuntu
         group: ubuntu
         mode: '0600'
-      when: env_file is defined
+      when: mongo_root_password is defined
 
     - name: Stop existing containers
-      ansible.builtin.shell: docker-compose down
+      ansible.builtin.shell: docker compose -f docker-compose-production.yml down
       args:
         chdir: "{{ app_dir }}"
       ignore_errors: true
 
-    - name: Build and start Docker containers
-      ansible.builtin.shell: docker-compose up -d --build
+    - name: Pull Docker images
+      ansible.builtin.shell: docker compose -f docker-compose-production.yml pull
+      args:
+        chdir: "{{ app_dir }}"
+
+    - name: Start Docker containers
+      ansible.builtin.shell: docker compose -f docker-compose-production.yml up -d --remove-orphans
       args:
         chdir: "{{ app_dir }}"
 
@@ -107,11 +187,11 @@
         timeout: 120
       loop:
         - 8080
-        - 3000
+        - 80
 
     - name: Verify application is running
       uri:
-        url: "http://localhost:3000"
+        url: "http://localhost"
         status_code: 200
       register: result
       until: result.status == 200
@@ -142,16 +222,16 @@
         port: '443'
         proto: tcp
 
-    - name: Allow Frontend port
-      ufw:
-        rule: allow
-        port: '3000'
-        proto: tcp
-
     - name: Allow Backend port
       ufw:
         rule: allow
         port: '8080'
+        proto: tcp
+
+    - name: Allow Jenkins port
+      ufw:
+        rule: allow
+        port: '{{ jenkins_port }}'
         proto: tcp
 
     - name: Enable UFW
@@ -169,3 +249,9 @@
       systemd:
         name: docker
         state: restarted
+
+    - name: Restart Jenkins
+      systemd:
+        name: jenkins
+        state: restarted
+        daemon_reload: yes

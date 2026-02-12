@@ -1,6 +1,11 @@
 # Build stage
 FROM node:18-alpine AS build
 WORKDIR /app
+
+# API URL defaults to /api (nginx proxies to backend)
+ARG REACT_APP_API_URL=/api
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
+
 COPY package*.json ./
 RUN npm install
 COPY . .

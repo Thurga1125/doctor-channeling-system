@@ -64,18 +64,29 @@ output "ansible_inventory" {
   })
 }
 
+# AMI used
+output "ami_id" {
+  description = "AMI ID used for the EC2 instance"
+  value       = data.aws_ami.ubuntu.id
+}
+
 # Application URLs
 output "frontend_url" {
   description = "Frontend application URL"
-  value       = "https://${aws_instance.app.public_dns}"
+  value       = "http://${aws_instance.app.public_ip}:3000"
 }
 
 output "backend_api_url" {
   description = "Backend API URL"
-  value       = "https://${aws_instance.app.public_dns}/api"
+  value       = "http://${aws_instance.app.public_ip}:8080/api"
+}
+
+output "jenkins_url" {
+  description = "Jenkins URL"
+  value       = "http://${aws_instance.app.public_ip}:8082"
 }
 
 output "swagger_ui_url" {
   description = "Swagger UI URL"
-  value       = "https://${aws_instance.app.public_dns}/swagger-ui.html"
+  value       = "http://${aws_instance.app.public_ip}:8080/swagger-ui.html"
 }

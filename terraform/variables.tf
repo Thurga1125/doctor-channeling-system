@@ -1,19 +1,13 @@
 variable "aws_region" {
   description = "AWS region to deploy resources"
   type        = string
-  default     = "ap-south-1"
-}
-
-variable "ami_id" {
-  description = "AMI ID for the EC2 instance (Ubuntu 24.04 LTS)"
-  type        = string
-  default     = "ami-0dee22c13ea7a9a67"
+  default     = "eu-north-1"
 }
 
 variable "instance_type" {
-  description = "EC2 instance type"
+  description = "EC2 instance type (t2.medium minimum for Jenkins + App)"
   type        = string
-  default     = "t2.micro"
+  default     = "t2.medium"
 }
 
 variable "key_name" {

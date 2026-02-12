@@ -35,14 +35,9 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        labels: "service,environment"
-        env: "LOG_LEVEL"
 
   # Spring Boot Backend
   backend:
-    build:
-      context: ./Backend
-      dockerfile: Dockerfile
     image: thurgarajinathan/doctor-channeling-backend:latest
     container_name: backend
     restart: always
@@ -53,7 +48,6 @@ services:
       SPRING_DATA_MONGODB_AUTO_INDEX_CREATION: "true"
       JAVA_OPTS: "-Xmx256m -Xms128m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-production}
-      AWS_REGION: ${AWS_REGION:-eu-north-1}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     depends_on:
       mongodb:
@@ -63,7 +57,7 @@ services:
     volumes:
       - ./logs:/app/logs:rw
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health", "||", "exit", "1"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -81,34 +75,23 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        labels: "service,environment"
-        env: "LOG_LEVEL"
 
   # React Frontend with Nginx
   frontend:
-    build:
-      context: ./Frontend
-      dockerfile: Dockerfile
     image: thurgarajinathan/doctor-channeling-frontend:latest
     container_name: frontend
     restart: always
     ports:
-      - "3000:80"
-      - "443:443"
+      - "80:80"
     depends_on:
       - backend
     networks:
       - doctor-network
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/nginx-http.conf:/etc/nginx/conf.d/default.conf:ro
       - ./logs:/var/log/nginx:rw
-      - /etc/letsencrypt:/etc/letsencrypt:ro
-      - /var/www/certbot:/var/www/certbot:ro
-    environment:
-      NGINX_HOST: ${DOMAIN_NAME:-localhost}
-      NGINX_PORT: 80
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health", "||", "exit", "1"]
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -126,7 +109,6 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-        labels: "service,environment"
 
 networks:
   doctor-network:

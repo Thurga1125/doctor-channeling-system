@@ -2,13 +2,10 @@ pipeline {
     agent any
 
     environment {
-        PATH = "/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${env.PATH}"
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
         DOCKER_HUB_USERNAME = 'thurgarajinathan'
         APP_NAME = 'doctor-channeling'
-        AWS_CREDENTIALS = credentials('aws-credentials')
-        EC2_HOST = credentials('ec2-host-ip')
-        SSH_KEY = credentials('ec2-ssh-key')
+        APP_DIR = '/home/ubuntu/doctor-channeling-system'
     }
 
     stages {
@@ -89,37 +86,32 @@ pipeline {
             }
         }
 
-        stage('Deploy to EC2') {
+        stage('Deploy Application') {
             steps {
-                echo 'Deploying to EC2 instance...'
-                sshagent(['ec2-ssh-key']) {
-                    sh """
-                        ssh -o StrictHostKeyChecking=no ubuntu@\${EC2_HOST} << 'ENDSSH'
-                            cd /home/ubuntu/doctor-channeling-system || git clone https://github.com/Thurga1125/doctor-channeling-system.git /home/ubuntu/doctor-channeling-system
-                            cd /home/ubuntu/doctor-channeling-system
-                            git pull origin main
+                echo 'Deploying application locally...'
+                sh """
+                    cd ${APP_DIR}
+                    git pull origin main || true
 
-                            if [ ! -f .env ]; then
-                                echo "Missing /home/ubuntu/doctor-channeling-system/.env on EC2" >&2
-                                exit 1
-                            fi
+                    # Ensure .env file exists
+                    if [ ! -f .env ]; then
+                        echo "ERROR: Missing ${APP_DIR}/.env file" >&2
+                        exit 1
+                    fi
 
-                            # Pull latest images
-                            docker pull ${DOCKER_HUB_USERNAME}/${APP_NAME}-backend:latest
-                            docker pull ${DOCKER_HUB_USERNAME}/${APP_NAME}-frontend:latest
+                    # Pull latest images from Docker Hub
+                    docker pull ${DOCKER_HUB_USERNAME}/${APP_NAME}-backend:latest
+                    docker pull ${DOCKER_HUB_USERNAME}/${APP_NAME}-frontend:latest
 
-                            # Stop and remove existing containers
-                            docker compose -f docker-compose-production.yml down || true
+                    # Stop existing containers
+                    docker compose -f docker-compose-production.yml down || true
 
-                            # Start with new images
-                            docker compose -f docker-compose-production.yml pull
-                            docker compose -f docker-compose-production.yml up -d --remove-orphans
+                    # Start with new images
+                    docker compose -f docker-compose-production.yml up -d --remove-orphans
 
-                            # Clean up old images
-                            docker image prune -f
-ENDSSH
-                    """
-                }
+                    # Clean up old images
+                    docker image prune -f
+                """
             }
         }
 
@@ -127,9 +119,9 @@ ENDSSH
             steps {
                 echo 'Performing health check...'
                 script {
-                    sleep(30)  // Wait for services to start
-                    sh "curl -f http://\${EC2_HOST}:8080/api/health || echo 'Backend health check pending...'"
-                    sh "curl -f http://\${EC2_HOST}:3000 || echo 'Frontend health check pending...'"
+                    sleep(30)
+                    sh 'curl -f http://localhost:8080/actuator/health || echo "Backend health check pending..."'
+                    sh 'curl -f http://localhost:80 || echo "Frontend health check pending..."'
                 }
             }
         }
@@ -138,12 +130,9 @@ ENDSSH
     post {
         success {
             echo 'Pipeline completed successfully!'
-            // Uncomment to enable Slack notifications
-            // slackSend color: 'good', message: "Deployment successful: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
         }
         failure {
             echo 'Pipeline failed!'
-            // slackSend color: 'danger', message: "Deployment failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}"
         }
         always {
             sh 'docker logout || true'

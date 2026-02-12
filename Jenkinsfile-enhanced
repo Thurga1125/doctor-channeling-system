@@ -4,7 +4,7 @@ pipeline {
     environment {
         // Docker Hub Configuration
         DOCKER_HUB_CREDENTIALS = credentials('docker-hub-credentials')
-        DOCKER_HUB_USERNAME = 'thurga1125'
+        DOCKER_HUB_USERNAME = 'thurgarajinathan'
         APP_NAME = 'doctor-channeling'
 
         // AWS Configuration
@@ -296,7 +296,7 @@ ENDSSH
                             curl -f http://\${EC2_HOST}:8080/actuator/health || exit 1
 
                             echo "Checking frontend health..."
-                            curl -f http://\${EC2_HOST}:3000 || exit 1
+                            curl -f http://\${EC2_HOST} || exit 1
 
                             echo "All health checks passed!"
                         """
@@ -311,8 +311,8 @@ ENDSSH
                     steps {
                         echo ' Running smoke tests...'
                         sh """
-                            # Test API endpoints
-                            curl -f http://\${EC2_HOST}:8080/api/health || exit 1
+                            # Test backend health endpoint
+                            curl -f http://\${EC2_HOST}:8080/actuator/health || exit 1
 
                             # Test Swagger UI
                             curl -f http://\${EC2_HOST}:8080/swagger-ui.html || exit 1
@@ -326,7 +326,7 @@ ENDSSH
                         echo '⚡ Checking performance baseline...'
                         sh """
                             # Simple response time check
-                            time curl -f http://\${EC2_HOST}:3000 || true
+                            time curl -f http://\${EC2_HOST} || true
                         """
                     }
                 }
@@ -374,7 +374,7 @@ Build Number: ${BUILD_NUMBER}
 Duration: ${deploymentTime}
 Backend Image: ${DOCKER_HUB_USERNAME}/${APP_NAME}-backend:${BUILD_NUMBER}
 Frontend Image: ${DOCKER_HUB_USERNAME}/${APP_NAME}-frontend:${BUILD_NUMBER}
-Frontend URL: http://\${EC2_HOST}:3000
+Frontend URL: http://\${EC2_HOST}
 Backend API: http://\${EC2_HOST}:8080
 Swagger UI: http://\${EC2_HOST}:8080/swagger-ui.html
 ===========================================
