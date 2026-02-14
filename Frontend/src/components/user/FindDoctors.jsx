@@ -102,7 +102,7 @@ const FindDoctors = () => {
           />
           
           <button type="submit" className="search-button">
-            🔍 Search
+             Search
           </button>
         </form>
       </div>
