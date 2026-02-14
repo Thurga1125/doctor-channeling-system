@@ -37,7 +37,7 @@ jobs:
       - name: Build & Test Frontend
         working-directory: ./Frontend
         run: |
-          npm ci
+          npm install
           npm run build
           npm test -- --watchAll=false --passWithNoTests || true
 
