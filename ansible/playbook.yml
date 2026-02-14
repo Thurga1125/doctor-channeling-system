@@ -80,6 +80,7 @@
         src: /usr/local/bin/docker-compose
         dest: /usr/bin/docker-compose
         state: link
+        force: yes
 
     # Node.js Installation
     - name: Add NodeSource repository
@@ -94,14 +95,17 @@
         update_cache: yes
 
     # Jenkins Installation
+    - name: Remove stale Jenkins GPG key
+      file:
+        path: /usr/share/keyrings/jenkins-keyring.asc
+        state: absent
+
     - name: Add Jenkins GPG key
-      shell: curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
-      args:
-        creates: /usr/share/keyrings/jenkins-keyring.asc
+      shell: curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | gpg --dearmor -o /usr/share/keyrings/jenkins-keyring.gpg
 
     - name: Add Jenkins repository
       apt_repository:
-        repo: "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/"
+        repo: "deb [signed-by=/usr/share/keyrings/jenkins-keyring.gpg] https://pkg.jenkins.io/debian-stable binary/"
         state: present
 
     - name: Install Jenkins

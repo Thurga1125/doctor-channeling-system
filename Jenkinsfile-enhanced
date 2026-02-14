@@ -25,6 +25,10 @@ pipeline {
         S3_BACKUP_BUCKET = 'doctor-channeling-mongodb-backups-production'
     }
 
+    triggers {
+        githubPush()
+    }
+
     options {
         buildDiscarder(logRotator(numToKeepStr: '10'))
         timestamps()
@@ -35,7 +39,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo '🔍 Checking out code from GitHub...'
+                echo ' Checking out code from GitHub...'
                 git branch: 'main', url: 'https://github.com/Thurga1125/doctor-channeling-system.git'
             }
         }
@@ -193,7 +197,7 @@ pipeline {
 
         stage('Push to Docker Hub') {
             steps {
-                echo '📤 Pushing images to Docker Hub...'
+                echo ' Pushing images to Docker Hub...'
                 sh '''
                     echo $DOCKER_HUB_CREDENTIALS_PSW | docker login -u $DOCKER_HUB_CREDENTIALS_USR --password-stdin
                 '''
@@ -228,7 +232,7 @@ ENDSSH
 
         stage('Deploy to EC2') {
             steps {
-                echo '🚀 Deploying to EC2 instance...'
+                echo ' Deploying to EC2 instance...'
                 sshagent(['ec2-ssh-key']) {
                     sh """
                         ssh -o StrictHostKeyChecking=no ubuntu@\${EC2_HOST} << 'ENDSSH'
@@ -335,7 +339,7 @@ ENDSSH
 
         stage('Send Metrics to CloudWatch') {
             steps {
-                echo '📊 Sending deployment metrics to CloudWatch...'
+                echo ' Sending deployment metrics to CloudWatch...'
                 script {
                     withAWS(credentials: 'aws-credentials', region: "${AWS_REGION}") {
                         sh """
