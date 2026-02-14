@@ -59,7 +59,7 @@ const AdminLogin = () => {
             <input
               type="email"
               name="email"
-              placeholder="admin@mail.com"
+              placeholder="admin@example.com"
               value={formData.email}
               onChange={handleChange}
               required
