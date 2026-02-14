@@ -18,7 +18,6 @@ const EditDoctor = ({ doctor, onClose, onSuccess }) => {
     endTime: '',
     slotDuration: 30
   });
-  const [, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
   useEffect(() => {
@@ -78,8 +77,6 @@ const EditDoctor = ({ doctor, onClose, onSuccess }) => {
         return;
       }
 
-      setImageFile(file);
-      
       // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -94,7 +91,6 @@ const EditDoctor = ({ doctor, onClose, onSuccess }) => {
   };
 
   const handleRemoveImage = () => {
-    setImageFile(null);
     setImagePreview(null);
     setFormData(prev => ({
       ...prev,

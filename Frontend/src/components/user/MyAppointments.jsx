@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { appointmentService } from '../../services/appointmentService';
 import { useAuth } from '../../context/AuthContext';
 import './MyAppointments.css';
@@ -8,14 +8,7 @@ const MyAppointments = () => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user) {
-      loadAppointments();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
-
-  const loadAppointments = async () => {
+  const loadAppointments = useCallback(async () => {
     try {
       const data = await appointmentService.getUserAppointments(user.id);
       setAppointments(data);
@@ -24,7 +17,13 @@ const MyAppointments = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      loadAppointments();
+    }
+  }, [user, loadAppointments]);
 
   if (loading) return <div className="my-appointments-container"><div className="loading">Loading...</div></div>;
 

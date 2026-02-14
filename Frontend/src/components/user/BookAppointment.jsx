@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { appointmentService } from '../../services/appointmentService';
 import { doctorService } from '../../services/doctorService';
@@ -21,19 +21,18 @@ const BookAppointment = () => {
     paymentOption: 'PAY_AT_VISIT'
   });
 
-  useEffect(() => {
-    loadDoctor();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doctorId]);
-
-  const loadDoctor = async () => {
+  const loadDoctor = useCallback(async () => {
     try {
       const data = await doctorService.getDoctorById(doctorId);
       setDoctor(data);
     } catch (error) {
       console.error('Error loading doctor:', error);
     }
-  };
+  }, [doctorId]);
+
+  useEffect(() => {
+    loadDoctor();
+  }, [loadDoctor]);
 
   const calculatePaymentAmount = () => {
     if (!doctor) return 0;

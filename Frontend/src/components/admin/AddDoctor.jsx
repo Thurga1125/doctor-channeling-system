@@ -18,7 +18,6 @@ const AddDoctor = ({ onClose, onSuccess }) => {
     endTime: '',
     slotDuration: 30
   });
-  const [, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
   const handleChange = (e) => {
@@ -53,8 +52,6 @@ const AddDoctor = ({ onClose, onSuccess }) => {
         return;
       }
 
-      setImageFile(file);
-      
       // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -69,7 +66,6 @@ const AddDoctor = ({ onClose, onSuccess }) => {
   };
 
   const handleRemoveImage = () => {
-    setImageFile(null);
     setImagePreview(null);
     setFormData(prev => ({
       ...prev,
