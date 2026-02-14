@@ -12,6 +12,7 @@ const MyAppointments = () => {
     if (user) {
       loadAppointments();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const loadAppointments = async () => {

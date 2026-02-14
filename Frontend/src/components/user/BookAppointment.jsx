@@ -23,6 +23,7 @@ const BookAppointment = () => {
 
   useEffect(() => {
     loadDoctor();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doctorId]);
 
   const loadDoctor = async () => {

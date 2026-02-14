@@ -18,7 +18,7 @@ const EditDoctor = ({ doctor, onClose, onSuccess }) => {
     endTime: '',
     slotDuration: 30
   });
-  const [imageFile, setImageFile] = useState(null);
+  const [, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
   useEffect(() => {
