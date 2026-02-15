@@ -40,7 +40,7 @@ const Home = () => {
       </section>
 
       <section className="features-section">
-        <h2 className="section-title">THURGA</h2>
+        <h2 className="section-title">Why Choose DoctorChannel?</h2>
         <p className="section-subtitle">
           We make healthcare accessible, convenient, and reliable for everyone
         </p>
